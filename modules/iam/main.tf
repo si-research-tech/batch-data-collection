@@ -1,9 +1,12 @@
 variable project {}
+variable lambda_enabled {}
+variable rds_enabled {}
+variable s3_enabled {}
+variable sqs_enabled {}
 
 data "aws_partition" "current_partition" {}
 data "aws_region" "current_region" {}
 data "aws_caller_identity" "current_identity" {}
-
 
 #######################################################################
 # ECS Task Execution Role                                      BEGIN  #
@@ -59,6 +62,8 @@ data "aws_iam_policy_document" "service-assumption" {
 data "aws_iam_policy_document" "service-execution" {
   statement {
     actions = [
+      "autoscaling:CreateOrUpdateTags",
+      "ec2:CreateTags",
       "ec2:DescribeAccountAttributes",
       "ec2:DescribeInstances",
       "ec2:DescribeInstanceStatus",
@@ -80,6 +85,7 @@ data "aws_iam_policy_document" "service-execution" {
       "autoscaling:DescribeLaunchConfigurations",
       "autoscaling:DescribeAutoScalingInstances",
       "eks:DescribeCluster",
+      "ecs:CreateCluster",
       "ecs:DescribeClusters",
       "ecs:DescribeContainerInstances",
       "ecs:DescribeTaskDefinition",
@@ -89,13 +95,14 @@ data "aws_iam_policy_document" "service-execution" {
       "ecs:ListTaskDefinitionFamilies",
       "ecs:ListTaskDefinitions",
       "ecs:ListTasks",
+      "ecs:RegisterTaskDefinition",
       "ecs:DeregisterTaskDefinition",
       "ecs:TagResource",
       "ecs:ListAccountSettings",
       "logs:DescribeLogGroups",
       "iam:GetInstanceProfile",
       "iam:GetRole",
-      "sqs:*",
+      "iam:PassRole",
     ]
     resources = ["*"]
   }
@@ -104,36 +111,13 @@ data "aws_iam_policy_document" "service-execution" {
     actions = [
       "logs:CreateLogGroup",
       "logs:CreateLogStream",
+      "logs:PutLogEvents",
     ]
     resources = [
+      "arn:aws:logs:*:*:log-group:/aws/${var.project}*",
       "arn:aws:logs:*:*:log-group:/aws/batch/${var.project}*",
       "arn:aws:logs:*:*:log-group:/aws/batch/job*",
     ]
-  }
-
-  statement {
-    actions = [
-      "logs:PutLogEvents"
-    ]
-    resources = [
-      "arn:aws:logs:*:*:log-group:/aws/batch/${var.project}*:log-stream:*",
-      "arn:aws:logs:*:*:log-group:/aws/batch/job*",
-    ]
-  }
-
-  statement {
-    actions = [ "autoscaling:CreateOrUpdateTags"]
-    resources = ["*"]
-  }
-
-  statement {
-    actions = ["iam:PassRole" ]
-    resources = ["*"]
-  }
-
-  statement {
-    actions = ["ec2:CreateLaunchTemplate"]
-    resources = ["*"]
   }
 
   statement {
@@ -183,14 +167,6 @@ data "aws_iam_policy_document" "service-execution" {
   }
 
   statement {
-    actions = [
-      "ecs:CreateCluster",
-      "ecs:RegisterTaskDefinition"
-    ]
-    resources = ["*"]
-  }
-
-  statement {
     actions = ["ec2:RunInstances"]
     resources = [
       "arn:aws:ec2:*::image/*",
@@ -212,11 +188,6 @@ data "aws_iam_policy_document" "service-execution" {
   statement {
     actions = ["ec2:RunInstances"]
     resources = ["arn:aws:ec2:*:*:instance/*"]
-  }
-
-  statement {
-    actions = ["ec2:CreateTags"]
-    resources = ["*"]
   }
 }
 
@@ -246,12 +217,132 @@ resource "aws_iam_role_policy_attachment" "service-execution" {
 # Compute Environment Batch Service Role                         END  #
 #######################################################################
 
+#######################################################################
+# Project Interop Policy                                       BEGIN  #
+#                                                                     #
+#  Allow interaction between services in this project                 #
+#######################################################################
+
+locals {
+  optional_permissions = [
+    {
+      service = "lambda"
+      enabled = var.lambda_enabled,
+      permissions = [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:InvokeFunction",
+        "lambda:InvokeFunctionUrl",
+        "lambda:ListFunctions",
+        "lambda:ListTags",
+        "lambda:TagResource",
+        "lambda:UpdateFunctionCode",
+      ]
+    },
+    {
+      service = "rds"
+      enabled = var.lambda_enabled,
+      permissions = [
+        "rds-db:connect"
+      ]
+    },
+    {
+      service = "s3"
+      enabled = var.lambda_enabled,
+      permissions = [
+        "s3:PutObject",
+        "s3:PutObjectAcl",
+        "s3:ListBucket",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion",
+        "s3:DeleteBucket",
+      ]
+    },
+    {
+      service     = "sqs"
+      enabled     = var.lambda_enabled,
+      permissions = [
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ListQueues",
+        "sqs:ListQueueTags",
+        "sqs:TagQueue",
+        "sqs:DeleteMessage",
+      ]
+    },
+  ]
+}
+
+data "aws_iam_policy_document" "job-execution" {
+  statement {
+    sid     = "EC2BatchJobExecutionPolicyRDS"
+    actions = [
+      "rds-db:connect",
+    ]
+    resources = ["arn:aws:rds-db:${data.aws_region.current_region.name}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
+  }
+
+  statement {
+    sid     = "EC2BatchJobExecutionPolicySecretsManager"
+    actions = [
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "EC2BatchJobExecutionPolicyLogs"
+    actions = [
+      "logs:PutLogEvents",
+      "logs:CreateLogStream",
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    sid     = "EC2BatchJobExecutionPolicyBatch"
+    actions = [
+      "batch:ListJobs",
+      "batch:DescribeJobQueues",
+      "batch:DescribeJobs",
+      "batch:CancelJob",
+      "batch:SubmitJob",
+      "batch:TerminateJob"
+    ]
+    resources = ["*"]
+  }
+  
+  dynamic "statement" {
+    for_each = [ for permission in locals.optional_permissions : permissions if permission.enabled ]
+    
+    content {
+      sid = "ContainerJobExecutionPolicy${statement.service}"
+      actions = statement.actions
+      resources = ["*"]
+    }
+  }
+
+}
+
+resource "aws_iam_policy" "project-interop" {
+  name   = "${var.project}-job-execution-policy"
+  path   = "/batch/"
+  policy = data.aws_iam_policy_document.job-execution.json
+}
+#######################################################################
+# Project Interop Policy                                         END  #
+#######################################################################
 
 #######################################################################
 # Fargate Container Job Role                                   BEGIN  #
 #                                                                     #
 #  Role inherited by containers spun up by AWS batch                  #
 #######################################################################
+
 data "aws_iam_policy_document" "job-assumption" {
   statement {
     sid     = "ECSBatchJobAssuptionPolicy"
@@ -277,85 +368,9 @@ resource "aws_iam_role" "job" {
   }
 }
 
-data "aws_iam_policy_document" "job-execution" {
-  statement {
-    sid     = "EC2BatchJobExecutionPolicyRDS"
-    actions = [
-      "rds-db:connect",
-    ]
-    resources = ["arn:aws:rds-db:${data.aws_region.current_region.name}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
-  }
-
-  # (Alex) Give batch permission to query secrets
-  statement {
-    sid     = "EC2BatchJobExecutionPolicySecretsManager"
-    actions = [
-      "secretsmanager:GetSecretValue",
-    ]
-    resources = ["*"]
-  }
-
-  # (Alex) Give batch permission to create and add log events 
-  statement {
-    sid     = "EC2BatchJobExecutionPolicyLogs"
-    actions = [
-      "logs:PutLogEvents",
-      "logs:CreateLogStream",
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    sid     = "EC2BatchJobExecutionPolicySQS"
-    actions = [
-      "sqs:SendMessage",
-      "sqs:ReceiveMessage",
-      "sqs:GetQueueAttributes",
-      "sqs:GetQueueUrl",
-      "sqs:ListQueues",
-      "sqs:ListQueueTags",
-      "sqs:TagQueue",
-      "sqs:DeleteMessage",
-    ]
-    resources = ["*"]
-  }
-  # (Alex) Removed duplicate sid here
-  statement {
-    sid     = "EC2BatchJobExecutionPolicyS3"
-    actions = [
-      "s3:PutObject",
-      "s3:PutObjectAcl",
-      "s3:ListBucket",
-      "s3:DeleteObject",
-      "s3:DeleteObjectVersion",
-      "s3:DeleteBucket",
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    sid     = "EC2BatchJobExecutionPolicyBatch"
-    actions = [
-      "batch:ListJobs",
-      "batch:DescribeJobQueues",
-      "batch:DescribeJobs",
-      "batch:CancelJob",
-      "batch:SubmitJob",
-      "batch:TerminateJob"
-    ]
-    resources = ["*"]
-  }
-}
-
-resource "aws_iam_policy" "job-execution" {
-  name   = "${var.project}-job-execution-policy"
-  path   = "/batch/"
-  policy = data.aws_iam_policy_document.job-execution.json
-}
-
 resource "aws_iam_role_policy_attachment" "job-execution" {
   role       = aws_iam_role.job.name
-  policy_arn = aws_iam_policy.job-execution.arn
+  policy_arn = aws_iam_policy.project-interop.arn
 }
 #######################################################################
 # Fargate Container Job Role                                     END  #
@@ -480,24 +495,3 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 #######################################################################
 # RDS Monitoring Role                                            END  #
 #######################################################################
-
-
-output "fargate_service_role_arn" {
-  value = aws_iam_role.service.arn
-}
-
-output "fargate_execution_role_arn" {
-  value = aws_iam_role.ecs_task_execution_role.arn
-}
-
-output "fargate_job_role_arn" {
-  value = aws_iam_role.job.arn
-}
-
-output "eventbridge_role_arn" {
-  value = aws_iam_role.eventbridge.arn
-}
-
-output "rds_monitoring_role_arn" {
-  value = aws_iam_role.rds_monitoring.arn
-}

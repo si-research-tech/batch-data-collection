@@ -23,8 +23,12 @@ module "network" {
 }
 
 module "iam" {
-  source  = "./modules/iam"
-  project = var.project
+  source          = "./modules/iam"
+  project         = var.project
+  lambda_enabled  = var.lambda.create
+  rds_enabled     = var.rds.create
+  s3_enabled      = var.s3.create
+  sqs_enabled     = var.sqs.create
 }
 
 module "s3" {
