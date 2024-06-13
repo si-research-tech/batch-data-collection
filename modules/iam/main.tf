@@ -376,6 +376,44 @@ resource "aws_iam_role_policy_attachment" "job-execution" {
 # Fargate Container Job Role                                     END  #
 #######################################################################
 
+#######################################################################
+# Lambda Execution Role                                        BEGIN  #
+#                                                                     #
+#  Role assumed by lambda functions created by this module            #
+#######################################################################
+
+data "aws_iam_policy_document" "lambda-assumption" {
+  statement {
+    sid     = "LambdaExecutionAssumptioonPolicy"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "job" {
+  name        = "${var.project}_lambda-execution"
+  path        = "${var.project}/lambda/"
+  description = "IAM execution role for AWS Lambda"
+
+  assume_role_policy    = data.aws_iam_policy_document.lambda-assumption.json
+  force_detach_policies = true
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda-execution" {
+  role       = aws_iam_role.job.name
+  policy_arn = aws_iam_policy.project-interop.arn
+}
+#######################################################################
+# Lambda Execution Role                                          END  #
+#######################################################################
 
 #######################################################################
 # Eventbridge Execution Role                                   BEGIN  #

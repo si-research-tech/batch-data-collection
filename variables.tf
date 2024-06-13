@@ -123,7 +123,7 @@ variable "jobs" {
     name              = string
     image_uri         = string
     vcpus             = number
-    memory           = number
+    memory            = number
     assign_public_ip  = bool
     runtime_platform  = bool
     environment       = list(object({
@@ -135,12 +135,25 @@ variable "jobs" {
       schedule          = string
       share_identifier  = string
       flex_minutes      = number
+      instances         = list(object({
+        environment = list(object({
+          name  = string
+          value = any
+        })),
+        schedule          = string,
+        share_identifier  = string,
+      }))
     })
   }))
 
   validation {
-    condition     = length(var.jobs) > 0
+    condition     = length(var.jobs) == 0
     error_message = "You must define jobs in your variables file. See variables.tf for example structure."
+  }
+
+  validation {
+    condition     = var.scheduling.enabled && len(var.scheduling.instances) == 0
+    error_message = "Scheduled jobs must have at least one run instance defined."
   }
 
   validation {

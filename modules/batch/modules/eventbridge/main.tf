@@ -22,9 +22,11 @@ resource "random_pet" "schedule" {
 }
 
 resource "aws_scheduler_schedule" "batch_schedule_runner" {
+  for_each = [ for instance in var.job.scheduling.instances : instance ]
+
   name                          = "${var.project}_${random_pet.this.id}"
   group_name                    = "default"
-  schedule_expression           = "${var.job.scheduling.schedule}"
+  schedule_expression           = try("${each.value.schedule}", "${var.job.scheduling.schedule}")
   schedule_expression_timezone  = "America/New_York"
 
   flexible_time_window {
@@ -40,9 +42,9 @@ resource "aws_scheduler_schedule" "batch_schedule_runner" {
       JobName                     = "${var.project}_${random_pet.this.id}_${timestamp()}"
       JobDefinition               = "${data.aws_batch_job_definition.this.arn}"
       JobQueue                    = "${data.aws_batch_job_queue.default.arn}"
-      ShareIdentifier             = "${var.job.scheduling.identifier}"
+      ShareIdentifier             = try("${each.value.share_identifier}", "${var.job.scheduling.share_identifier}")
       ContainerOverrides           = {
-        Environment = var.job.environment
+        Environment = try("${each.value.schedule}", [])
       }
     })
   }

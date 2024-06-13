@@ -111,6 +111,10 @@ resource "aws_batch_job_definition" "job_definitions" {
       assignPublicIp = each.value.runtime_platform ? "ENABLED" : "DISABLED"
     }
 
+    runtimePlatform = {
+      cpuArchitecture = "${each.value.runtime_platform}"
+    }
+
     resourceRequirements = [
       {
         type  = "VCPU"
@@ -121,10 +125,6 @@ resource "aws_batch_job_definition" "job_definitions" {
         value = "${each.value.memory}"
       }
     ]
-
-    runtimePlatform = {
-        cpuArchitecture = "${each.value.runtime_platform}"
-    }
   })
 }
 
@@ -137,4 +137,3 @@ module "eventbridge_schedule" {
 
 
 }
-# Scheduling stuff here
