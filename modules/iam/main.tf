@@ -317,11 +317,11 @@ data "aws_iam_policy_document" "job-execution" {
   }
   
   dynamic "statement" {
-    for_each = [ for permission in locals.optional_permissions : permissions if permission.enabled ]
+    for_each = [ for permission in local.optional_permissions : permission if permission.enabled ]
     
     content {
-      sid = "ContainerJobExecutionPolicy${statement.service}"
-      actions = statement.actions
+      sid = "ProjectInterop${statement.value.service}"
+      actions = statement.value.permissions
       resources = ["*"]
     }
   }
@@ -355,7 +355,7 @@ data "aws_iam_policy_document" "job-assumption" {
   }
 }
 
-resource "aws_iam_role" "job" {
+resource "aws_iam_role" "fargate-job" {
   name        = "${var.project}_fargate-job"
   path        = "/batch/"
   description = "IAM service role for AWS Batch"
@@ -369,7 +369,7 @@ resource "aws_iam_role" "job" {
 }
 
 resource "aws_iam_role_policy_attachment" "job-execution" {
-  role       = aws_iam_role.job.name
+  role       = aws_iam_role.fargate-job.name
   policy_arn = aws_iam_policy.project-interop.arn
 }
 #######################################################################
@@ -394,7 +394,7 @@ data "aws_iam_policy_document" "lambda-assumption" {
   }
 }
 
-resource "aws_iam_role" "job" {
+resource "aws_iam_role" "lambda-job" {
   name        = "${var.project}_lambda-execution"
   path        = "${var.project}/lambda/"
   description = "IAM execution role for AWS Lambda"
@@ -408,7 +408,7 @@ resource "aws_iam_role" "job" {
 }
 
 resource "aws_iam_role_policy_attachment" "lambda-execution" {
-  role       = aws_iam_role.job.name
+  role       = aws_iam_role.lambda-job.name
   policy_arn = aws_iam_policy.project-interop.arn
 }
 #######################################################################
@@ -533,3 +533,8 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 #######################################################################
 # RDS Monitoring Role                                            END  #
 #######################################################################
+
+
+output "blah" {
+  value = [ for permission in local.optional_permissions : permission if permission.enabled ]
+}

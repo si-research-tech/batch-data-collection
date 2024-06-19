@@ -1,8 +1,17 @@
 variable "project" {}
-variable "storage" {}
-variable "rds_monitoring_role" {}
-variable "rds_security_group" {}
-variable "db_subnet_group" {}
+variable "config" {}
+
+data "aws_iam_role" "rds_monitoring" {
+  name = "${var.project}-rds-monitoring-role"
+}
+
+data "aws_security_group" "rds_security" {
+  name        = "${var.project}_rds"
+}
+
+data "aws_db_subnet_group" "rds" {
+  name       = "${var.project}_rds"
+}
 
 locals {
   timestamp = formatdate("DDMMMYYYYhhmmZZZ", timestamp())
@@ -11,21 +20,21 @@ locals {
 resource "aws_db_instance" "default" {
   db_name                             = "${var.project}"
   identifier                          = "${var.project}"
-  engine                              = "mysql"
-  instance_class                      = "db.t3.medium"
-  db_subnet_group_name                = "${var.db_subnet_group}"
-  publicly_accessible                 = true
+  engine                              = "${var.config.engine}"
+  engine_version                      = "${var.config.engine_version}"
+  instance_class                      = "${var.config.instance_class}"
+  db_subnet_group_name                = "${data.aws_db_subnet_group.rds.name}"
+  publicly_accessible                 = "${var.config.publicly_accessible}"
   username                            = "${var.project}"
-  allocated_storage                   = "${var.storage}"
-  max_allocated_storage               = 1000
+  allocated_storage                   = 20
+  max_allocated_storage               = "${var.config.max_storage}"
   manage_master_user_password         = true
-  iam_database_authentication_enabled = true
   monitoring_interval                 = 30
-  monitoring_role_arn                 = var.rds_monitoring_role
+  monitoring_role_arn                 = data.aws_iam_role.rds_monitoring.arn
   backup_window                       = "07:00-08:00"
   backup_retention_period             = 7
   maintenance_window                  = "Sat:05:00-Sat:06:00"
-  vpc_security_group_ids              = ["${var.rds_security_group}"]
+  vpc_security_group_ids              = ["${data.aws_security_group.rds_security.id}"]
   final_snapshot_identifier           = "${var.project}-${local.timestamp}"
 
   provisioner "local-exec" {

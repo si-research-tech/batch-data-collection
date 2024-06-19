@@ -40,10 +40,10 @@ resource "aws_batch_compute_environment" "fargate_spot" {
     type                        = "MANAGED"
 
     compute_resources {
-      max_vcpus = var.fargate_config.max_vcpus
+      max_vcpus = var.fargate_config.compute_environment.max_vcpus
       security_group_ids = [ data.aws_security_group.fargate_job.id ]
-      subnets = [ data.aws_subnets.private_subnets.ids ]
-      type = var.fargate_config.use_spot ? "FARGATE_SPOT" : "FARGATE"
+      subnets = data.aws_subnets.private_subnets.ids
+      type = var.fargate_config.compute_environment.use_spot ? "FARGATE_SPOT" : "FARGATE"
     }
 }
 
@@ -58,8 +58,8 @@ resource "aws_batch_scheduling_policy" "queue-scheduling-policy" {
       for_each = var.batch_config.share_distributions
 
       content {
-        share_identifier  = share_distribution.share_identifier
-        weight_factor     = share_distribution.weight_factor
+        share_identifier  = share_distribution.value.share_identifier
+        weight_factor     = share_distribution.value.weight_factor
       }
     }
   }
@@ -79,7 +79,7 @@ resource "aws_batch_job_queue" "fargate_spot_queue" {
 }
 
 resource "aws_batch_job_definition" "job_definitions" {
-  for_each = var.jobs
+  for_each ={ for index, job in var.jobs : job.name => job }
 
   name = "${each.value.name}"
   type = "container"
@@ -94,7 +94,7 @@ resource "aws_batch_job_definition" "job_definitions" {
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group = "${data.aws_cloudwatch_log_group.name}"
+        awslogs-group = "${data.aws_cloudwatch_log_group.default.name}"
         awslogs-stream-prefix = "${each.value.name}"
       }
     }
@@ -108,7 +108,7 @@ resource "aws_batch_job_definition" "job_definitions" {
     }
 
     networkConfiguration = { 
-      assignPublicIp = each.value.runtime_platform ? "ENABLED" : "DISABLED"
+      assignPublicIp = each.value.assign_public_ip ? "ENABLED" : "DISABLED"
     }
 
     runtimePlatform = {
@@ -129,11 +129,9 @@ resource "aws_batch_job_definition" "job_definitions" {
 }
 
 module "eventbridge_schedule" {
-  for_each = [ for job in var.jobs : job if job.scheduling.enabled ]
-  source = "./modules/eventbridge"
+  for_each = { for index, job in var.jobs : job.name => job if job.scheduling.enabled }
+  source  = "./modules/eventbridge"
 
-  project               = var.project
-  job                   = each.value
-
-
+  project = var.project
+  job     = each.value
 }

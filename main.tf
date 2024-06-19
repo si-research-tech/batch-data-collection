@@ -59,14 +59,11 @@ module "sqs" {
 module "rds" {
   count = var.rds.create ? 1 : 0
 
-  source                = "./modules/rds"
-  project               = var.project
-  storage               = var.rds.max_storage
-  rds_monitoring_role   = "${module.iam.rds_monitoring_role_arn}"
-  rds_security_group    = "${module.network.rds_security_group}"
-  db_subnet_group       = "${module.network.rds_subnet_group}"
+  source  = "./modules/rds"
+  project = var.project
+  config  = var.rds
 
-  depends_on            = [
+  depends_on  = [
     module.iam,
     module.network
   ]
@@ -86,4 +83,8 @@ module "batch" {
     module.rds,
     module.s3
   ]
+}
+
+output "blah" {
+  value = module.iam.blah
 }

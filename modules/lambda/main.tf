@@ -24,12 +24,3 @@ resource "aws_lambda_function" "function" {
     variables = var.lambda.variables
   }
 }
-
-module "apigateway" {
-  source              =  "./modules/gatewayIntegration"
-  function_definition = var.lambda
-  invocation_arn      = aws_lambda_function.function.invoke_arn
-  api_gateway_id      = var.api_gateway_id
-
-  depends_on = [ aws_lambda_function.function ]
-}

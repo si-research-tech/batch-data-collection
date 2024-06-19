@@ -10,11 +10,11 @@ data "aws_batch_job_queue" "default" {
   name  = "${var.project}_default"
 }
 
-data "aws_batch_job_defintion" "this" {
+data "aws_batch_job_definition" "this" {
   name  = var.job.name
 }
 
-resource "random_pet" "schedule" {
+resource "random_pet" "this" {
   keepers = {
     job_definition_arn = data.aws_batch_job_definition.this.arn 
   }
@@ -22,7 +22,7 @@ resource "random_pet" "schedule" {
 }
 
 resource "aws_scheduler_schedule" "batch_schedule_runner" {
-  for_each = [ for instance in var.job.scheduling.instances : instance ]
+  for_each = { for index, instance in var.job.scheduling.instances : md5(instance.schedule) => instance }
 
   name                          = "${var.project}_${random_pet.this.id}"
   group_name                    = "default"
