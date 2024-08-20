@@ -36,26 +36,9 @@ resource "aws_db_instance" "default" {
   maintenance_window                  = "Sat:05:00-Sat:06:00"
   vpc_security_group_ids              = ["${data.aws_security_group.rds_security.id}"]
   final_snapshot_identifier           = "${var.project}-${local.timestamp}"
-
-  provisioner "local-exec" {
-    command = "evsales-aws rds stop-db-instance --db-instance-identifier ${aws_db_instance.default.identifier}"
-  }
 }
 
 module "eventbridge" {
   source = "./modules/eventbridge"
   project = var.project
-}
-
-# Alex- output the master secret
-output "database_master_credentials_arn" {
-  value = aws_db_instance.default.master_user_secret.0.secret_arn
-}
-
-output "database_address" {
-  value = aws_db_instance.default.address
-}
-
-output "database_identifier" {
-  value = aws_db_instance.default.identifier
 }

@@ -15,9 +15,6 @@ data "aws_batch_job_definition" "this" {
 }
 
 resource "random_pet" "this" {
-  keepers = {
-    job_definition_arn = data.aws_batch_job_definition.this.arn 
-  }
   prefix = var.job.name
 }
 
@@ -26,7 +23,7 @@ resource "aws_scheduler_schedule" "batch_schedule_runner" {
 
   name                          = "${var.project}_${random_pet.this.id}"
   group_name                    = "default"
-  schedule_expression           = try("${each.value.schedule}", "${var.job.scheduling.schedule}")
+  schedule_expression           = "${each.value.schedule}"
   schedule_expression_timezone  = "America/New_York"
 
   flexible_time_window {
@@ -44,7 +41,7 @@ resource "aws_scheduler_schedule" "batch_schedule_runner" {
       JobQueue                    = "${data.aws_batch_job_queue.default.arn}"
       ShareIdentifier             = try("${each.value.share_identifier}", "${var.job.scheduling.share_identifier}")
       ContainerOverrides           = {
-        Environment = try("${each.value.schedule}", [])
+        Environment = try("${each.value.environment}", [])
       }
     })
   }

@@ -79,7 +79,7 @@ resource "aws_batch_job_queue" "fargate_spot_queue" {
 }
 
 resource "aws_batch_job_definition" "job_definitions" {
-  for_each ={ for index, job in var.jobs : job.name => job }
+  for_each = { for index, job in var.jobs : job.name => job }
 
   name = "${each.value.name}"
   type = "container"
@@ -87,10 +87,10 @@ resource "aws_batch_job_definition" "job_definitions" {
   platform_capabilities = [ "FARGATE" ]
 
   container_properties = jsonencode({
-    executionRoleArn  = data.aws_iam_role.fargate_task_execution.arn
+    executionRoleArn  = "${data.aws_iam_role.fargate_task_execution.arn}"
     image             = "${each.value.image_uri}"
-    jobRoleArn        = data.aws_iam_role.fargate_job.arn
-    environment       = each.value.environment
+    jobRoleArn        = "${data.aws_iam_role.fargate_job.arn}"
+    environment       = "${each.value.environment}"
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -100,7 +100,7 @@ resource "aws_batch_job_definition" "job_definitions" {
     }
 
     timeout = {
-      attempt_duration_seconds = 300
+      attempt_duration_seconds = "300"
     }
 
     fargatePlatformConfiguration = {
@@ -117,7 +117,7 @@ resource "aws_batch_job_definition" "job_definitions" {
 
     resourceRequirements = [
       {
-        type  = "VCPU"
+       type  = "VCPU"
         value = "${each.value.vcpus}"
       },
       {

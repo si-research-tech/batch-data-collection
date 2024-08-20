@@ -84,7 +84,3 @@ module "batch" {
     module.s3
   ]
 }
-
-output "blah" {
-  value = module.iam.blah
-}

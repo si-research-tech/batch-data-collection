@@ -15,6 +15,13 @@ variable "shortcode" {
 
 variable "project" {
   type    = string
+
+  validation {
+    condition     = can(regex("^[a-z]+$", var.project))
+    error_message = "Project must be all lower case with no special characters. (Sorry, Amazon can't make up their mind on conventions.)"
+  }
+  # TODO: We might need to enforce this to be lowercase single-string
+  # COMMENT: That blows.
 }
 
 variable "fargate" {
@@ -132,13 +139,8 @@ variable "lambda" {
   type      = object({
     create    = bool
     functions = list(object({
-
-      # This name should match the directory name under /modules/lambda/data to package your function.
-      name = string
-
-      # Valid runtimes are listed at: https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html
-      runtime = string
-
+      name = string               # This name should match the directory name under /modules/lambda/data to package your function.
+      runtime = string            # Valid runtimes are listed at: https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html
       entrypoint = string
       variables = list(object({
         name  = string
@@ -161,8 +163,8 @@ variable "jobs" {
   type  = list(object({
     name              = string
     image_uri         = string
-    vcpus             = number
-    memory            = number
+    vcpus             = string      # See https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html#fargate-tasks-size for valid combos
+    memory            = string      # See https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html#fargate-tasks-size for valid combos
     assign_public_ip  = bool
     runtime_platform  = string
     environment       = list(object({
@@ -174,10 +176,10 @@ variable "jobs" {
       flex_minutes      = number
       instances         = list(object({
         environment = list(object({
-          name  = string
-          value = any
+          Name  = string
+          Value = any
         })),
-        schedule          = string,
+        schedule          = string, # See https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html for valid expression examples
         share_identifier  = string,
       }))
     })
@@ -197,24 +199,10 @@ variable "jobs" {
 
   validation {
     condition     = alltrue([
-      for job in var.jobs : can(regex("^(x86_64|ARM64)$", job.runtime_platform))
+      for job in var.jobs : can(regex("^(X86_64|ARM64)$", job.runtime_platform))
     ])
-    error_message = "Runtime platform must be set to either `x86_64` or `ARM64`."
+    error_message = "Runtime platform must be set to either `X86_64` or `ARM64`."
   }
-
-# TODO: We'll come back to this probably, but the regex needs tweaking to accomodate AWS' cron syntax and... yeesh.
-#  validation {
-#    condition     = alltrue([
-#      for job in var.jobs : 
-#       can(
-#         regex(
-#            "^[0-9*?]{1,2}\\w[0-9*?]{1,2}\\s[0-9*?]{1,2}\\s[0-9*?]{1,2}\\s[0-9*?]{1,2}\\s[0-9*?]{1,2}\\s?$",
-#            join(" ", flatten([for instance in job.scheduling.instances : instance.schedule]))
-#          )
-#        )
-#    ])
-#   error_message = "Schedules must be provided in cron format. Check https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html for help."
-# }
 
   validation {
     condition     = alltrue([

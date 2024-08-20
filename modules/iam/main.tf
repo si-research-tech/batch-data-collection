@@ -1,3 +1,5 @@
+#TODO: We should probably organize the paths for all these roles. 
+
 variable project {}
 variable lambda_enabled {}
 variable rds_enabled {}
@@ -193,7 +195,7 @@ data "aws_iam_policy_document" "service-execution" {
 
 resource "aws_iam_role" "service" {
   name        = "${var.project}_batch-service"
-  path        = "/batch/"
+  path        = "/${var.project}/batch/"
   description = "IAM service role for AWS Batch"
 
   assume_role_policy    = data.aws_iam_policy_document.service-assumption.json
@@ -205,7 +207,7 @@ resource "aws_iam_role" "service" {
 
 resource "aws_iam_policy" "service-execution" {
   name   = "${var.project}-service-execution-policy"
-  path   = "/batch/"
+  path   = "/${var.project}/batch/"
   policy = data.aws_iam_policy_document.service-execution.json
 }
 
@@ -330,7 +332,7 @@ data "aws_iam_policy_document" "job-execution" {
 
 resource "aws_iam_policy" "project-interop" {
   name   = "${var.project}-job-execution-policy"
-  path   = "/batch/"
+  path   = "/${var.project}/"
   policy = data.aws_iam_policy_document.job-execution.json
 }
 #######################################################################
@@ -357,7 +359,7 @@ data "aws_iam_policy_document" "job-assumption" {
 
 resource "aws_iam_role" "fargate-job" {
   name        = "${var.project}_fargate-job"
-  path        = "/batch/"
+  path        = "/${var.project}/batch/"
   description = "IAM service role for AWS Batch"
 
   assume_role_policy    = data.aws_iam_policy_document.job-assumption.json
@@ -396,7 +398,7 @@ data "aws_iam_policy_document" "lambda-assumption" {
 
 resource "aws_iam_role" "lambda-job" {
   name        = "${var.project}_lambda-execution"
-  path        = "${var.project}/lambda/"
+  path        = "/${var.project}/lambda/"
   description = "IAM execution role for AWS Lambda"
 
   assume_role_policy    = data.aws_iam_policy_document.lambda-assumption.json
@@ -434,7 +436,7 @@ data "aws_iam_policy_document" "eventbridge-assumption" {
 
 resource "aws_iam_role" "eventbridge" {
   name                = "${var.project}_eventbridge-execution"
-  path                = "/batch/"
+  path                = "/${var.project}/eventbridge/"
   description         = "IAM service role for Eventbridge"
   assume_role_policy  = data.aws_iam_policy_document.eventbridge-assumption.json
 
@@ -457,7 +459,7 @@ data "aws_iam_policy_document" "eventbridge" {
 
 resource "aws_iam_policy" "eventbridge" {
   name   = "${var.project}-eventbridge-execution-policy"
-  path   = "/batch/"
+  path   = "/${var.project}/eventbridge/"
   policy = data.aws_iam_policy_document.eventbridge.json
 }
 
@@ -489,7 +491,7 @@ data "aws_iam_policy_document" "rds-monitoring-assumption" {
 
 resource "aws_iam_role" "rds_monitoring" {
   name        = "${var.project}-rds-monitoring-role"
-  path        = "/batch/"
+  path        = "/${var.project}/rds/"
   description = "IAM service role for RDS/Cloudwatch Interaction"
   assume_role_policy  = data.aws_iam_policy_document.rds-monitoring-assumption.json
 
@@ -522,7 +524,7 @@ data "aws_iam_policy_document" "rds_monitoring" {
 
 resource "aws_iam_policy" "rds_monitoring" {
   name   = "${var.project}-rds-monitoring-policy"
-  path   = "/batch/"
+  path   = "/${var.project}/rds/"
   policy = data.aws_iam_policy_document.rds_monitoring.json
 }
 
@@ -533,8 +535,3 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
 #######################################################################
 # RDS Monitoring Role                                            END  #
 #######################################################################
-
-
-output "blah" {
-  value = [ for permission in local.optional_permissions : permission if permission.enabled ]
-}
