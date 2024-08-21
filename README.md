@@ -8,7 +8,7 @@ The scraped data is then written to a centralized database using RDS, or alterna
 # Getting Started with AWS
 Amazon Web Services (AWS) is a comprehensive cloud computing platform provided by Amazon, offering a wide array of services including computing power, storage, and databases, to help organizations scale and grow, while providing robust tools for deployment, management, and security of various applications and services.
 
-If you do not already have the AWS CLI configured, you can follow the steps [in our documentation to get it configured](https://umsi.atlassian.net/l/cp/VdGfd6Bu)
+If you do not already have the AWS CLI configured, you can follow the steps [in our documentation to get it configured](https://special-adventure-5k92rgy.pages.github.io/)
 
 ---
 
@@ -79,4 +79,4 @@ Once you have forke, cloned, and configured this module by creating a `terraform
 In the example architecture below, the team was looking to collect data from multiple web-based sources on the sales of electric vehicles. After writing the Python code to scrape a single source using values from environment variables, the image, along with the configuration of this module, was able to be utilized to scrape thousands of pages per day to retrieve the necessary data. 
 
 ## Architecture 
-![Batch Data Collection Example Architecture](./assets/images/scrape_example.png)
+[![Batch Data Collection Example Architecture](./assets/images/scrape_example.png)](https://special-adventure-pl14j3j.pages.github.io/assets/images/scrape_example.png)
