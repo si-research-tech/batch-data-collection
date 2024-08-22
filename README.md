@@ -8,7 +8,7 @@ The scraped data is then written to a centralized database using RDS, or alterna
 # Getting Started with AWS
 Amazon Web Services (AWS) is a comprehensive cloud computing platform provided by Amazon, offering a wide array of services including computing power, storage, and databases, to help organizations scale and grow, while providing robust tools for deployment, management, and security of various applications and services.
 
-If you do not already have the AWS CLI configured, you can follow the steps [in our documentation to get it configured](https://special-adventure-5k92rgy.pages.github.io/)
+If you do not already have the AWS CLI configured, you can follow the steps [in our documentation to get it configured](https://special-adventure-5k92rgy.pages.github.io/aws/using_aws_with_umsi_research.html)
 
 ---
 
