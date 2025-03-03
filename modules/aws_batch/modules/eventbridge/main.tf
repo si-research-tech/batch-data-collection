@@ -3,7 +3,7 @@ variable project {}
 
 
 data "aws_iam_role" "eventbridge" {
-  name  = "${var.project}_eventbridge-execution"
+  name  = "${var.project}_eventbridge-batch-execution"
 }
 
 data "aws_batch_job_queue" "default" {
@@ -19,15 +19,15 @@ resource "random_pet" "this" {
 }
 
 resource "aws_scheduler_schedule" "batch_schedule_runner" {
-  for_each = { for index, instance in var.job.scheduling.instances : md5(instance.schedule) => instance }
+  for_each = { for index, instance in var.job.scheduling.instances : md5(instance.aws_schedule) => instance }
 
   name                          = "${var.project}_${random_pet.this.id}"
   group_name                    = "default"
-  schedule_expression           = "${each.value.schedule}"
+  schedule_expression           = "cron(${each.value.aws_schedule})"
   schedule_expression_timezone  = "America/New_York"
 
   flexible_time_window {
-    maximum_window_in_minutes   = "10"
+    maximum_window_in_minutes   = "5"
     mode                        = "FLEXIBLE"
   }
 
@@ -36,10 +36,11 @@ resource "aws_scheduler_schedule" "batch_schedule_runner" {
     role_arn                    = "${data.aws_iam_role.eventbridge.arn}"
 
     input = jsonencode({
-      JobName                     = "${var.project}_${random_pet.this.id}_${timestamp()}"
+      JobName                     = "${var.project}_${random_pet.this.id}"
       JobDefinition               = "${data.aws_batch_job_definition.this.arn}"
       JobQueue                    = "${data.aws_batch_job_queue.default.arn}"
       ShareIdentifier             = try("${each.value.share_identifier}", "${var.job.scheduling.share_identifier}")
+      SchedulingPriorityOverride  = 10
       ContainerOverrides           = {
         Environment = try("${each.value.environment}", [])
       }

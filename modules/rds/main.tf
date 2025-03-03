@@ -36,9 +36,17 @@ resource "aws_db_instance" "default" {
   maintenance_window                  = "Sat:05:00-Sat:06:00"
   vpc_security_group_ids              = ["${data.aws_security_group.rds_security.id}"]
   final_snapshot_identifier           = "${var.project}-${local.timestamp}"
+
+  lifecycle {
+    ignore_changes = [ final_snapshot_identifier ]
+  } 
 }
 
 module "eventbridge" {
   source = "./modules/eventbridge"
   project = var.project
+}
+
+output "db_endpoint" {
+  value = aws_db_instance.default.endpoint
 }

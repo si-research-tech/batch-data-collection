@@ -12,6 +12,11 @@ provider "aws" {
   }
 }
 
+provider "google" {
+  project = "drivinghistory-f548"
+  region  = "us-central1"
+}
+
 resource "aws_cloudwatch_log_group" "default" {
   name              = "${var.project}"
   retention_in_days = 30
@@ -20,26 +25,24 @@ resource "aws_cloudwatch_log_group" "default" {
 module "network" {
   source  = "./modules/network"
   project = var.project
+  components = var.components
 }
 
 module "iam" {
-  source          = "./modules/iam"
-  project         = var.project
-  lambda_enabled  = var.lambda.create
-  rds_enabled     = var.rds.create
-  s3_enabled      = var.s3.create
-  sqs_enabled     = var.sqs.create
+  source      = "./modules/iam"
+  project     = var.project
+  components  = var.components
 }
 
 module "s3" {
-  count = var.s3.create ? 1 : 0
+  count = var.components.s3 ? 1 : 0
   source = "terraform-aws-modules/s3-bucket/aws"
 
   bucket = "${var.project}"
 }
 
 module "sqs" {
-  count   = var.sqs.create ? 1 : 0
+  count   = var.components.sqs ? 1 : 0
   source  = "terraform-aws-modules/sqs/aws"
 
   name                      = "${var.project}"
@@ -57,7 +60,7 @@ module "sqs" {
 }
 
 module "rds" {
-  count = var.rds.create ? 1 : 0
+  count = var.components.rds ? 1 : 0
 
   source  = "./modules/rds"
   project = var.project
@@ -69,13 +72,41 @@ module "rds" {
   ]
 }
 
-module "batch" {
-  source = "./modules/batch"
+output "db_endpoint" {
+  value = try(module.rds.db_endpoint, "None")
+}
+
+module "aws_batch" {
+  count = var.components.batch ? 1 : 0
+  source = "./modules/aws_batch"
 
   project         = var.project
   jobs            = var.jobs
   batch_config    = var.batch
-  fargate_config  = var.fargate
+  fargate_config  = var.batch.fargate_config
+
+  depends_on = [
+    module.iam,
+    module.sqs,
+    module.rds,
+    module.s3
+  ]
+}
+
+resource "terraform_data" "gcp_environ" {
+  count = var.components.cloud_run ? 1 : 0
+  provisioner "local-exec" {
+    command = "export GOOGLE_APPLICATION_CREDENTIALS='./etc/gcp-service-account.json'"
+  }
+}
+
+module "aws_cloud_run" {
+  count = var.components.cloud_run ? 1 : 0
+  source = "./modules/gcp_cloud_run"
+
+  cloud_run_config  = var.cloud_run
+  project           = var.project
+  jobs              = var.jobs
 
   depends_on = [
     module.iam,

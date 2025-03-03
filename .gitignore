@@ -1,3 +1,5 @@
 terraform*
 .terraform*
 modules/lambda/data
+etc/*
+!etc/README.md
