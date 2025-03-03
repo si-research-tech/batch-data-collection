@@ -69,13 +69,13 @@ module "rds" {
   ]
 }
 
-module "batch" {
-  source = "./modules/batch"
+module "aws_batch" {
+  source = "./modules/aws_batch"
 
   project         = var.project
   jobs            = var.jobs
   batch_config    = var.batch
-  fargate_config  = var.fargate
+  fargate_config  = var.batch.fargate_config
 
   depends_on = [
     module.iam,

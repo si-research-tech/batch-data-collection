@@ -24,22 +24,6 @@ variable "project" {
   # COMMENT: That blows.
 }
 
-variable "fargate" {
-  type      = object({
-    compute_environment = object({
-      use_spot  = bool
-      max_vcpus = number
-    })
-  })
-
-  default   = {
-    compute_environment = {
-      use_spot  = false
-      max_vcpus = 64
-    }
-  }
-}
-
 variable "batch" {
   type      = object({
     fair_share_policy   = object({
@@ -50,6 +34,12 @@ variable "batch" {
       share_identifier  = string
       weight_factor     = number
     }))
+    fargate_config      = object({
+      compute_environment = object({
+        use_spot  = bool
+        max_vcpus = number
+      })
+    })
   })
 
   default   = {
@@ -71,6 +61,12 @@ variable "batch" {
         weight_factor     = 2
       }
     ]
+    fargate_config  = {
+      compute_environment = {
+        use_spot  = false
+        max_vcpus = 64
+      }
+    }
   }
 }
 
