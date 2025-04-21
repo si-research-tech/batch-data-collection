@@ -1,4 +1,4 @@
-# DO DEFINE VARIABLES IN THIS FILE!
+# DO NOT DEFINE VARIABLES IN THIS FILE!
 # This file is only for declaring *which* variables this terraform module uses.
 # Project-specific variable declarations should be made in a new file called
 # terraform.tfvars
@@ -24,8 +24,19 @@ variable "project" {
   # COMMENT: That blows.
 }
 
+variable "cloud_run" {
+  type    = object({
+    enabled = bool
+  })
+
+  default = {
+    enabled = false
+  }
+}
+
 variable "batch" {
   type      = object({
+    enabled = bool
     fair_share_policy   = object({
       compute_reservation = number
       share_decay_seconds = number
@@ -43,6 +54,7 @@ variable "batch" {
   })
 
   default   = {
+    enabled = true
     fair_share_policy = {
       compute_reservation = 0
       share_decay_seconds = 300

@@ -70,12 +70,36 @@ module "rds" {
 }
 
 module "aws_batch" {
+  count = var.batch.enabled ? 1 : 0
   source = "./modules/aws_batch"
 
   project         = var.project
   jobs            = var.jobs
   batch_config    = var.batch
   fargate_config  = var.batch.fargate_config
+
+  depends_on = [
+    module.iam,
+    module.sqs,
+    module.rds,
+    module.s3
+  ]
+}
+
+resource "terraform_data" "gcp_environ" {
+  count = var.cloud_run.enabled ? 1 : 0
+  provisioner "local-exec" {
+    command = "export GOOGLE_APPLICATION_CREDENTIALS='./etc/gcp-service-account.json'"
+  }
+}
+
+module "aws_cloud_run" {
+  count = var.cloud_run.enabled ? 1 : 0
+  source = "./modules/gcp_cloud_run"
+
+  cloud_run_config  = var.cloud_run
+  project           = var.project
+  jobs              = var.jobs
 
   depends_on = [
     module.iam,

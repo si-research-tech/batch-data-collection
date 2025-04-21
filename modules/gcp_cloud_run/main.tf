@@ -15,12 +15,12 @@ data "google_iam_policy" "cloud_run_invoker" {
     role = "roles/run.invoker"
 
     members = [
-      "serviceAccount": google_service_account.cloud_run_invoker.email
+      "serviceAccount:${google_service_account.cloud_run_invoker.email}",
     ]
   }
 }
 
-resrouce "google_service_account_iam_policy" "invoker_policy" {
+resource "google_service_account_iam_policy" "invoker_policy" {
   service_account_id  = google_service_account.cloud_run_invoker.name
   policy_data         = data.google_iam_policy.cloud_run_invoker.policy_data
 }
@@ -31,8 +31,9 @@ resource "google_project_service" "cloudscheduler_api" {
   disable_on_destroy = false #TODO: Come back and think about this https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_project_service#disable_on_destroy-1
 }
 
-# Define cloud run job
+# Define cloud run job(s)
 resource "google_cloud_run_v2_job" "default" {
+#TODO: Make this shit a foreach
   name     = "cloudrun-job"
   location = "us-central1"
   deletion_protection = false
@@ -41,9 +42,12 @@ resource "google_cloud_run_v2_job" "default" {
     template {
       containers {
         image = "us-docker.pkg.dev/cloudrun/container/job"
+        
         resources {
-          cpu = "2"
-          memory = "1024Mi"
+          limits = {
+            cpu = "2" #TODO: This needs to be per-job
+            memory = "1024Mi" #TODO: Samsies
+          }
         }
       }
     }
@@ -53,6 +57,7 @@ resource "google_cloud_run_v2_job" "default" {
 
 # Define scheduling
 resource "google_cloud_scheduler_job" "job" {
+#TODO: make this shit a foreach too
   provider         = google-beta
   name             = "schedule-job"
   description      = "test http job"
@@ -67,7 +72,7 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${google_cloud_run_v2_job.default.location}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.project.number}/jobs/${google_cloud_run_v2_job.default.name}:run"
+    uri         = "https://${google_cloud_run_v2_job.default.location}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.this.number}/jobs/${google_cloud_run_v2_job.default.name}:run"
 
     # oauth_token is reuired when submitting jobs to Cloud Run
     oauth_token {
