@@ -25,28 +25,33 @@ resource "google_service_account_iam_policy" "invoker_policy" {
   policy_data         = data.google_iam_policy.cloud_run_invoker.policy_data
 }
 
-# Authorize CloudScheduler API for this project
-resource "google_project_service" "cloudscheduler_api" {
-  service = "cloudscheduler.googleapis.com"
-  disable_on_destroy = false #TODO: Come back and think about this https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/google_project_service#disable_on_destroy-1
-}
-
 # Define cloud run job(s)
 resource "google_cloud_run_v2_job" "default" {
-#TODO: Make this shit a foreach
-  name     = "cloudrun-job"
+  for_each = { for index, job in var.jobs : job.name => job }
+
+  name     = "${each.value.name}"
   location = "us-central1"
   deletion_protection = false
 
   template {
     template {
+      timeout = "300s"
+
       containers {
-        image = "us-docker.pkg.dev/cloudrun/container/job"
-        
+        image = "${each.value.image_uri}"
+
+        dynamic "env" {
+          foreach ${each.value.environment}
+          content {
+            name  = ${each.key}
+            value = ${each.value}
+          }
+        }
+
         resources {
           limits = {
-            cpu = "2" #TODO: This needs to be per-job
-            memory = "1024Mi" #TODO: Samsies
+            cpu = "${each.value.vcpus}"
+            memory = "${each.value.memory}"
           }
         }
       }
@@ -54,34 +59,14 @@ resource "google_cloud_run_v2_job" "default" {
   }
 }
 
+module "cloudrun_scheduler" {
+  for_each = { for index, job in var.jobs : job.name => job if job.scheduling.enabled }
+  source  = "./modules/scheduler"
 
-# Define scheduling
-resource "google_cloud_scheduler_job" "job" {
-#TODO: make this shit a foreach too
-  provider         = google-beta
-  name             = "schedule-job"
-  description      = "test http job"
-  schedule         = "*/8 * * * *"
-  attempt_deadline = "320s"
-  region           = "us-central1"
-  project          = data.google_project.this.project_id
-
-  retry_config {
-    retry_count = 3
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${google_cloud_run_v2_job.default.location}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.this.number}/jobs/${google_cloud_run_v2_job.default.name}:run"
-
-    # oauth_token is reuired when submitting jobs to Cloud Run
-    oauth_token {
-      service_account_email = google_service_account.cloud_run_invoker.email
-    }
-  }
+  project = var.project
+  job     = each.value
 
   depends_on = [
-    resource.google_project_service.cloudscheduler_api,
     resource.google_cloud_run_v2_job.default,
   ]
 }

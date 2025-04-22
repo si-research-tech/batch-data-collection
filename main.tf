@@ -12,6 +12,11 @@ provider "aws" {
   }
 }
 
+provider "google" {
+  project = "drivinghistory-f548"
+  region  = "us-central1"
+}
+
 resource "aws_cloudwatch_log_group" "default" {
   name              = "${var.project}"
   retention_in_days = 30
