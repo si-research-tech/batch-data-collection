@@ -3,8 +3,17 @@ variable project {}
 
 data "google_project" "this" {}
 
+data "google_cloud_run_v2_job" "parent" { 
+  name      =  var.job
+  location  = "us-central1"
+}
+
+data "google_service_account" "cloud_run_invoker" {
+  account_id  = var.project
+}
+
 resource "random_pet" "this" {
-  prefix = var.job.name
+  prefix = var.job
 }
 
 resource "google_cloud_scheduler_job" "job" {
@@ -24,11 +33,11 @@ resource "google_cloud_scheduler_job" "job" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${google_cloud_run_v2_job.default.location}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.this.number}/jobs/${google_cloud_run_v2_job.default.name}:run"
-`   body        = base64encode("{\"overrides\": ${jsonencode(each.value.environment)}}")    
+    uri         = "https://${data.google_cloud_run_v2_job.parent.location}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${data.google_project.this.number}/jobs/${data.google_cloud_run_v2_job.parent.name}:run"
+    body        = base64encode("{\"overrides\": ${jsonencode(each.value.environment)}}")    
     # oauth_token is reuired when submitting jobs to Cloud Run
     oauth_token {
-      service_account_email = google_service_account.cloud_run_invoker.email
+      service_account_email = data.google_service_account.cloud_run_invoker.email
     }
   }
 }

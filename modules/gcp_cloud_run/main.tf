@@ -41,10 +41,10 @@ resource "google_cloud_run_v2_job" "default" {
         image = "${each.value.image_uri}"
 
         dynamic "env" {
-          foreach ${each.value.environment}
+          for_each = each.value.environment
           content {
-            name  = ${each.key}
-            value = ${each.value}
+            name  = "${env.key}"
+            value = "${env.value}"
           }
         }
 
