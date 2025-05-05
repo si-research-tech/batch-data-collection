@@ -19,11 +19,11 @@ resource "random_pet" "this" {
 }
 
 resource "aws_scheduler_schedule" "batch_schedule_runner" {
-  for_each = { for index, instance in var.job.scheduling.instances : md5(instance.schedule) => instance }
+  for_each = { for index, instance in var.job.scheduling.instances : md5(instance.aws_schedule) => instance }
 
   name                          = "${var.project}_${random_pet.this.id}"
   group_name                    = "default"
-  schedule_expression           = "${each.value.schedule}"
+  schedule_expression           = "cron(${each.value.aws_schedule})"
   schedule_expression_timezone  = "America/New_York"
 
   flexible_time_window {

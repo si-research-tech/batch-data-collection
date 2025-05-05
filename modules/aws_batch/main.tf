@@ -134,4 +134,6 @@ module "eventbridge_schedule" {
 
   project = var.project
   job     = each.value
+
+  depends_on = [ aws_batch_job_definition.job_definitions ]
 }

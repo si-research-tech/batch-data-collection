@@ -30,21 +30,21 @@ module "network" {
 module "iam" {
   source          = "./modules/iam"
   project         = var.project
-  lambda_enabled  = var.lambda.create
-  rds_enabled     = var.rds.create
-  s3_enabled      = var.s3.create
-  sqs_enabled     = var.sqs.create
+  lambda_enabled  = var.components.lambda
+  rds_enabled     = var.components.rds
+  s3_enabled      = var.components.s3
+  sqs_enabled     = var.components.sqs
 }
 
 module "s3" {
-  count = var.s3.create ? 1 : 0
+  count = var.components.s3 ? 1 : 0
   source = "terraform-aws-modules/s3-bucket/aws"
 
   bucket = "${var.project}"
 }
 
 module "sqs" {
-  count   = var.sqs.create ? 1 : 0
+  count   = var.components.sqs ? 1 : 0
   source  = "terraform-aws-modules/sqs/aws"
 
   name                      = "${var.project}"
@@ -62,7 +62,7 @@ module "sqs" {
 }
 
 module "rds" {
-  count = var.rds.create ? 1 : 0
+  count = var.components.rds ? 1 : 0
 
   source  = "./modules/rds"
   project = var.project
@@ -75,7 +75,7 @@ module "rds" {
 }
 
 module "aws_batch" {
-  count = var.batch.enabled ? 1 : 0
+  count = var.components.batch ? 1 : 0
   source = "./modules/aws_batch"
 
   project         = var.project
@@ -92,14 +92,14 @@ module "aws_batch" {
 }
 
 resource "terraform_data" "gcp_environ" {
-  count = var.cloud_run.enabled ? 1 : 0
+  count = var.components.cloud_run ? 1 : 0
   provisioner "local-exec" {
     command = "export GOOGLE_APPLICATION_CREDENTIALS='./etc/gcp-service-account.json'"
   }
 }
 
 module "aws_cloud_run" {
-  count = var.cloud_run.enabled ? 1 : 0
+  count = var.components.cloud_run ? 1 : 0
   source = "./modules/gcp_cloud_run"
 
   cloud_run_config  = var.cloud_run

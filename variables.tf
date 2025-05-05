@@ -24,19 +24,28 @@ variable "project" {
   # COMMENT: That blows.
 }
 
-variable "cloud_run" {
-  type    = object({
-    enabled = bool
+variable "components" {
+  type = object({
+    batch = bool
+    cloud_run = bool
+    lambda = bool
+    rds = bool
+    s3  = bool
+    sqs = bool
   })
 
   default = {
-    enabled = false
+    batch = true
+    cloud_run = false
+    lambda = false
+    rds = false
+    s3 = false
+    sqs = false
   }
 }
 
 variable "batch" {
   type      = object({
-    enabled = bool
     fair_share_policy   = object({
       compute_reservation = number
       share_decay_seconds = number
@@ -54,7 +63,6 @@ variable "batch" {
   })
 
   default   = {
-    enabled = true
     fair_share_policy = {
       compute_reservation = 0
       share_decay_seconds = 300
@@ -82,9 +90,13 @@ variable "batch" {
   }
 }
 
+variable "cloud_run" {
+  type = object({})
+  default = {}
+}
+
 variable "rds" {
   type      = object({
-    create              = bool
     max_storage         = number
 
      # Using awscli, list engines/versions with `aws rds describe-db-engine-versions | jq '.[][] | "Engine=\(.Engine) Version=\(.EngineVersion)"'`
@@ -99,7 +111,6 @@ variable "rds" {
   })
 
   default   = {
-    create              = false
     max_storage         = 1000
     engine              = "mysql"
     engine_version      = "8.0.36"
@@ -119,25 +130,13 @@ variable "rds" {
   }
 }
 
-variable "s3" {
-  type      = object({
-    create  = bool
-  })
-
-  default   = {
-    create  = false
-  }
-}
-
 variable "sqs" {
   type    = object({
-    create                = bool
     max_recieve_attempts  = number
     max_retention_seconds = number
   })
 
   default = {
-    create                = false
     max_recieve_attempts  = 5
     max_retention_seconds = 72000
   }
@@ -145,7 +144,6 @@ variable "sqs" {
 
 variable "lambda" {
   type      = object({
-    create    = bool
     functions = list(object({
       name = string               # This name should match the directory name under /modules/lambda/data to package your function.
       runtime = string            # Valid runtimes are listed at: https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html
@@ -158,7 +156,6 @@ variable "lambda" {
   })
 
   default   = {
-    create    = false
     functions = []
   }
 }
@@ -187,7 +184,8 @@ variable "jobs" {
           Name  = string
           Value = any
         })),
-        schedule          = string, # See https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html for valid expression examples
+        aws_schedule          = string, # See https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-cron-expressions.html for valid expression examples
+        gcp_schedule          = string, # See https://cloud.google.com/scheduler/docs/configuring/cron-job-schedules
         share_identifier  = string,
       }))
     })
