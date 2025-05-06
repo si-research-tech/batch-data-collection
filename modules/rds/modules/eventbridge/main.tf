@@ -1,7 +1,7 @@
 variable project {}
 
 data "aws_iam_role" "eventbridge" {
-  name  = "${var.project}_eventbridge-execution"
+  name  = "${var.project}_eventbridge-batch-execution"
 }
 
 resource "aws_scheduler_schedule" "rds_activate" {
