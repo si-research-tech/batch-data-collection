@@ -18,30 +18,30 @@ data "aws_subnets" "private_subnets" {
 data "aws_cloudwatch_log_group" "default" {
   name  = "${var.project}"
 }
-data "aws_iam_role" "fargate_task_execution" {
-  name  = "${var.project}_ecs-task-exec"
-}
-
-data "aws_iam_role" "fargate_job" {
-  name  = "${var.project}_fargate-job"
+data "aws_iam_role" "ecs_task_execution" {
+  name  = "${var.project}_ecs-task-execution"
 }
 
 data "aws_iam_role" "batch_service" {
   name  = "${var.project}_batch-service"
 }
 
-data "aws_security_group" "fargate_job" {
+data "aws_iam_role" "batch_task" {
+  name  = "${var.project}_batch-task"
+}
+
+data "aws_security_group" "fargate" {
   name  = "${var.project}_fargate"
 }
 
-resource "aws_batch_compute_environment" "fargate_spot" {
-    compute_environment_name    = "${var.project}_default"
+resource "aws_batch_compute_environment" "fargate" {
+    compute_environment_name    = "AWSBatch_${var.project}"
     service_role                = data.aws_iam_role.batch_service.arn
     type                        = "MANAGED"
 
     compute_resources {
       max_vcpus = var.fargate_config.compute_environment.max_vcpus
-      security_group_ids = [ data.aws_security_group.fargate_job.id ]
+      security_group_ids = [ data.aws_security_group.fargate.id ]
       subnets = data.aws_subnets.private_subnets.ids
       type = var.fargate_config.compute_environment.use_spot ? "FARGATE_SPOT" : "FARGATE"
     }
@@ -65,15 +65,15 @@ resource "aws_batch_scheduling_policy" "queue-scheduling-policy" {
   }
 }
 
-resource "aws_batch_job_queue" "fargate_spot_queue" {
+resource "aws_batch_job_queue" "fargate_queue" {
   name      = "${var.project}_default"
   state     = "ENABLED"
   priority  = 1
   scheduling_policy_arn = aws_batch_scheduling_policy.queue-scheduling-policy.arn
 
   compute_environment_order {
-    order               = 1
-    compute_environment = aws_batch_compute_environment.fargate_spot.arn
+    order               = 0
+    compute_environment = aws_batch_compute_environment.fargate.arn
   } 
 
 }
@@ -82,14 +82,15 @@ resource "aws_batch_job_definition" "job_definitions" {
   for_each = { for index, job in var.jobs : job.name => job }
 
   name = "${each.value.name}"
+  scheduling_priority = 9999
   type = "container"
 
   platform_capabilities = [ "FARGATE" ]
 
   container_properties = jsonencode({
-    executionRoleArn  = "${data.aws_iam_role.fargate_task_execution.arn}"
+    executionRoleArn  = "${data.aws_iam_role.ecs_task_execution.arn}"
     image             = "${each.value.image_uri}"
-    jobRoleArn        = "${data.aws_iam_role.fargate_job.arn}"
+    jobRoleArn        = "${data.aws_iam_role.batch_task.arn}"
     environment       = "${each.value.environment}"
     logConfiguration = {
       logDriver = "awslogs"
@@ -126,6 +127,10 @@ resource "aws_batch_job_definition" "job_definitions" {
       }
     ]
   })
+
+  lifecycle {
+    ignore_changes = [ container_properties ]
+  }
 }
 
 module "eventbridge_schedule" {

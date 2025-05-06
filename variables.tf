@@ -64,17 +64,17 @@ variable "batch" {
 
   default   = {
     fair_share_policy = {
-      compute_reservation = 0
+      compute_reservation = 1
       share_decay_seconds = 300
     }
     share_distributions = [
       {
         share_identifier  = "high"
-        weight_factor     = 2
+        weight_factor     = 0.5
       },
       {
         share_identifier  = "medium"
-        weight_factor     = 2
+        weight_factor     = 1
       },
       {
         share_identifier  = "low"
@@ -84,7 +84,7 @@ variable "batch" {
     fargate_config  = {
       compute_environment = {
         use_spot  = false
-        max_vcpus = 64
+        max_vcpus = 32
       }
     }
   }

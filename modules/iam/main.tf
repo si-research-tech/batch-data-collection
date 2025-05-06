@@ -1,23 +1,19 @@
-#TODO: We should probably organize the paths for all these roles. 
-
 variable project {}
-variable lambda_enabled {}
-variable rds_enabled {}
-variable s3_enabled {}
-variable sqs_enabled {}
+variable components {}
 
 data "aws_partition" "current_partition" {}
 data "aws_region" "current_region" {}
 data "aws_caller_identity" "current_identity" {}
 
-#######################################################################
-# ECS Task Execution Role                                      BEGIN  #
-#                                                                     #
-#  The execution role grants the Amazon ECS container and AWS Fargate #
-#  agents permission to make AWS API calls on your behalf.            #
-#######################################################################
+###############################################################################
+# ECS Task Execution Role                                              BEGIN  #
+#                                                                             #
+#  The execution role grants the Amazon ECS container and AWS Fargate         #
+#  agents permission to make AWS API calls on your behalf.                    #
+###############################################################################
 data "aws_iam_policy_document" "ecs_task_execution_assumption_policy" {
   statement {
+    sid = "AllowECSServiceAssumption"
     actions = [
       "sts:AssumeRole",
     ]
@@ -30,26 +26,33 @@ data "aws_iam_policy_document" "ecs_task_execution_assumption_policy" {
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name               = "${var.project}_ecs-task-exec"
+  name               = "${var.project}_ecs-task-execution"
+  path               = "/${var.project}/batch/"
+  description        = "iam role to allow ecs container execution and associated"
+
   assume_role_policy = data.aws_iam_policy_document.ecs_task_execution_assumption_policy.json
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
-resource "aws_iam_role_policy_attachment" "ecs_task_execution_access_policy_attachment" {
+resource "aws_iam_role_policy_attachment" "ecs_task_execution_policy_attachment" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
-#######################################################################
-# ECS Task Execution Role                                        END  #
-#######################################################################
+###############################################################################
+# ECS Task Execution Role                                                END  #
+###############################################################################
 
 
-#######################################################################
-# Compute Environment Batch Service Role                       BEGIN  #
-#                                                                     #
-#  Makes calls to other AWS services on your behalf to manage the     #
-#  resources that you use with AWS Batch.                             #
-#######################################################################
-data "aws_iam_policy_document" "service-assumption" {
+###############################################################################
+# Compute Environment Batch Service Role                               BEGIN  #
+#                                                                             #
+#  Makes calls to other AWS services on your behalf to manage the             #
+#  resources that you use with AWS Batch.                                     #
+###############################################################################
+data "aws_iam_policy_document" "batch-service-assumption" {
   statement {
     sid     = "ECSBatchServiceAssumptionPolicy"
     actions = [ "sts:AssumeRole" ]
@@ -61,7 +64,19 @@ data "aws_iam_policy_document" "service-assumption" {
   }
 }
 
-data "aws_iam_policy_document" "service-execution" {
+resource "aws_iam_role" "batch-service" {
+  name        = "${var.project}_batch-service"
+  path        = "/${var.project}/batch/"
+  description = "IAM service role for AWS Batch"
+
+  assume_role_policy    = data.aws_iam_policy_document.batch-service-assumption.json
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+data "aws_iam_policy_document" "batch-service" {
   statement {
     actions = [
       "autoscaling:CreateOrUpdateTags",
@@ -116,6 +131,7 @@ data "aws_iam_policy_document" "service-execution" {
       "logs:PutLogEvents",
     ]
     resources = [
+      "arn:aws:logs:*:*:log-group:/${var.project}*",
       "arn:aws:logs:*:*:log-group:/aws/${var.project}*",
       "arn:aws:logs:*:*:log-group:/aws/batch/${var.project}*",
       "arn:aws:logs:*:*:log-group:/aws/batch/job*",
@@ -193,43 +209,38 @@ data "aws_iam_policy_document" "service-execution" {
   }
 }
 
-resource "aws_iam_role" "service" {
-  name        = "${var.project}_batch-service"
-  path        = "/${var.project}/batch/"
-  description = "IAM service role for AWS Batch"
-
-  assume_role_policy    = data.aws_iam_policy_document.service-assumption.json
-
-  lifecycle {
-    create_before_destroy = true
-  }
+resource "aws_iam_policy" "batch-service" {
+  name               = "${var.project}_batch-service-execution"
+  path               = "/${var.project}/batch/"
+  description        = "IAM Role to allow Batch to manage AWS resources"
+  policy             = data.aws_iam_policy_document.batch-service.json
 }
 
-resource "aws_iam_policy" "service-execution" {
-  name   = "${var.project}-service-execution-policy"
-  path   = "/${var.project}/batch/"
-  policy = data.aws_iam_policy_document.service-execution.json
+resource "aws_iam_role_policy_attachment" "batch-service-execution" {
+  role       = aws_iam_role.batch-service.name
+  policy_arn = aws_iam_policy.batch-service.arn
 }
 
-resource "aws_iam_role_policy_attachment" "service-execution" {
-  role       = aws_iam_role.service.name
-  policy_arn = aws_iam_policy.service-execution.arn
+resource "aws_iam_role_policy_attachment" "batch-ecs-task-execution" {
+  role       = aws_iam_role.batch-service.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
-#######################################################################
-# Compute Environment Batch Service Role                         END  #
-#######################################################################
 
-#######################################################################
-# Project Interop Policy                                       BEGIN  #
-#                                                                     #
-#  Allow interaction between services in this project                 #
-#######################################################################
+###############################################################################
+# Compute Environment Batch Service Role                                 END  #
+###############################################################################
+
+###############################################################################
+# Project Interop Policy                                               BEGIN  #
+#                                                                             #
+#  Allow interaction between services in this project                         #
+###############################################################################
 
 locals {
   optional_permissions = [
     {
       service = "lambda"
-      enabled = var.lambda_enabled,
+      enabled = var.components.lambda,
       permissions = [
         "lambda:CreateFunction",
         "lambda:DeleteFunction",
@@ -242,17 +253,19 @@ locals {
         "lambda:TagResource",
         "lambda:UpdateFunctionCode",
       ]
+      resources = ["*"]
     },
     {
       service = "rds"
-      enabled = var.lambda_enabled,
+      enabled = var.components.rds,
       permissions = [
         "rds-db:connect"
       ]
+      resources = ["arn:aws:rds-db:${data.aws_region.current_region.name}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
     },
     {
       service = "s3"
-      enabled = var.lambda_enabled,
+      enabled = var.components.s3,
       permissions = [
         "s3:PutObject",
         "s3:PutObjectAcl",
@@ -261,10 +274,11 @@ locals {
         "s3:DeleteObjectVersion",
         "s3:DeleteBucket",
       ]
+      resources = ["*"]
     },
     {
       service     = "sqs"
-      enabled     = var.lambda_enabled,
+      enabled     = var.components.sqs,
       permissions = [
         "sqs:SendMessage",
         "sqs:ReceiveMessage",
@@ -275,18 +289,12 @@ locals {
         "sqs:TagQueue",
         "sqs:DeleteMessage",
       ]
+      resources = ["*"]
     },
   ]
 }
 
 data "aws_iam_policy_document" "job-execution" {
-  statement {
-    sid     = "EC2BatchJobExecutionPolicyRDS"
-    actions = [
-      "rds-db:connect",
-    ]
-    resources = ["arn:aws:rds-db:${data.aws_region.current_region.name}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
-  }
 
   statement {
     sid     = "EC2BatchJobExecutionPolicySecretsManager"
@@ -324,7 +332,7 @@ data "aws_iam_policy_document" "job-execution" {
     content {
       sid = "ProjectInterop${statement.value.service}"
       actions = statement.value.permissions
-      resources = ["*"]
+      resources = statement.value.resources
     }
   }
 
@@ -335,19 +343,19 @@ resource "aws_iam_policy" "project-interop" {
   path   = "/${var.project}/"
   policy = data.aws_iam_policy_document.job-execution.json
 }
-#######################################################################
-# Project Interop Policy                                         END  #
-#######################################################################
+###############################################################################
+# Project Interop Policy                                                 END  #
+###############################################################################
 
-#######################################################################
-# Fargate Container Job Role                                   BEGIN  #
-#                                                                     #
-#  Role inherited by containers spun up by AWS batch                  #
-#######################################################################
+###############################################################################
+# AWS Batch Task Role                                                  BEGIN  #
+#                                                                             #
+#  Role inherited by containers spun up by AWS batch                          #
+###############################################################################
 
-data "aws_iam_policy_document" "job-assumption" {
+data "aws_iam_policy_document" "batch-task-assumption" {
   statement {
-    sid     = "ECSBatchJobAssuptionPolicy"
+    sid     = "ECSBatchTaskAssuptionPolicy"
     actions = ["sts:AssumeRole"]
 
     principals {
@@ -357,12 +365,12 @@ data "aws_iam_policy_document" "job-assumption" {
   }
 }
 
-resource "aws_iam_role" "fargate-job" {
-  name        = "${var.project}_fargate-job"
+resource "aws_iam_role" "batch-task" {
+  name        = "${var.project}_batch-task"
   path        = "/${var.project}/batch/"
-  description = "IAM service role for AWS Batch"
+  description = "IAM role for AWS Batch Tasks"
 
-  assume_role_policy    = data.aws_iam_policy_document.job-assumption.json
+  assume_role_policy    = data.aws_iam_policy_document.batch-task-assumption.json
   force_detach_policies = true
 
   lifecycle {
@@ -370,19 +378,19 @@ resource "aws_iam_role" "fargate-job" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "job-execution" {
-  role       = aws_iam_role.fargate-job.name
+resource "aws_iam_role_policy_attachment" "batch-task-execution" {
+  role       = aws_iam_role.batch-task.name
   policy_arn = aws_iam_policy.project-interop.arn
 }
-#######################################################################
-# Fargate Container Job Role                                     END  #
-#######################################################################
+###############################################################################
+# AWS Batch Task Role                                                    END  #
+###############################################################################
 
-#######################################################################
-# Lambda Execution Role                                        BEGIN  #
-#                                                                     #
-#  Role assumed by lambda functions created by this module            #
-#######################################################################
+###############################################################################
+# Lambda Execution Role                                                BEGIN  #
+#                                                                             #
+#  Role assumed by lambda functions created by this module                    #
+###############################################################################
 
 data "aws_iam_policy_document" "lambda-assumption" {
   statement {
@@ -413,18 +421,18 @@ resource "aws_iam_role_policy_attachment" "lambda-execution" {
   role       = aws_iam_role.lambda-job.name
   policy_arn = aws_iam_policy.project-interop.arn
 }
-#######################################################################
-# Lambda Execution Role                                          END  #
-#######################################################################
+###############################################################################
+# Lambda Execution Role                                                 END  #
+###############################################################################
 
-#######################################################################
-# Eventbridge Execution Role                                   BEGIN  #
-#                                                                     #
-#   Role granted to EventBridge to allow for execution of Batch jobs  # 
-#######################################################################
+###############################################################################
+# Eventbridge Execution Role                                           BEGIN  #
+#                                                                             #
+#   Role granted to EventBridge to allow for execution of Batch jobs          # 
+###############################################################################
 data "aws_iam_policy_document" "eventbridge-assumption" {
   statement {
-    sid     = "EventBridgeBatchJobAssuptionPolicy"
+    sid     = "EventBridgeBatchAssuptionPolicy"
     actions = ["sts:AssumeRole"]
 
     principals {
@@ -435,9 +443,9 @@ data "aws_iam_policy_document" "eventbridge-assumption" {
 }
 
 resource "aws_iam_role" "eventbridge" {
-  name                = "${var.project}_eventbridge-execution"
-  path                = "/${var.project}/eventbridge/"
-  description         = "IAM service role for Eventbridge"
+  name                = "${var.project}_eventbridge-batch-execution"
+  path                = "/${var.project}/batch/"
+  description         = "IAM role for Eventbridge to allow Batch and RDS API operations"
   assume_role_policy  = data.aws_iam_policy_document.eventbridge-assumption.json
 
   lifecycle {
@@ -459,7 +467,7 @@ data "aws_iam_policy_document" "eventbridge" {
 
 resource "aws_iam_policy" "eventbridge" {
   name   = "${var.project}-eventbridge-execution-policy"
-  path   = "/${var.project}/eventbridge/"
+  path   = "/${var.project}/batch/"
   policy = data.aws_iam_policy_document.eventbridge.json
 }
 
@@ -467,16 +475,16 @@ resource "aws_iam_role_policy_attachment" "eventbridge" {
   role       = aws_iam_role.eventbridge.name
   policy_arn = aws_iam_policy.eventbridge.arn
 }
-#######################################################################
-# Eventbridge Execution Role                                     END  #
-#######################################################################
+###############################################################################
+# Eventbridge Execution Role                                             END  #
+###############################################################################
 
 
-#######################################################################
-# RDS Monitoring Role                                          BEGIN  #
-#                                                                     #
-#   Role granted to EventBridge to allow for execution of Batch jobs  # 
-#######################################################################
+###############################################################################
+# RDS Monitoring Role                                                  BEGIN  #
+#                                                                             #
+#   Role granted to EventBridge to allow for execution of Batch jobs          # 
+###############################################################################
 data "aws_iam_policy_document" "rds-monitoring-assumption" {
   statement {
     sid     = "RDSMonitoringBatchJobAssuptionPolicy"
@@ -532,6 +540,6 @@ resource "aws_iam_role_policy_attachment" "rds_monitoring" {
   role       = aws_iam_role.rds_monitoring.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
-#######################################################################
-# RDS Monitoring Role                                            END  #
-#######################################################################
+###############################################################################
+# RDS Monitoring Role                                                    END  #
+###############################################################################

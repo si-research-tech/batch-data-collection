@@ -25,15 +25,13 @@ resource "aws_cloudwatch_log_group" "default" {
 module "network" {
   source  = "./modules/network"
   project = var.project
+  components = var.components
 }
 
 module "iam" {
-  source          = "./modules/iam"
-  project         = var.project
-  lambda_enabled  = var.components.lambda
-  rds_enabled     = var.components.rds
-  s3_enabled      = var.components.s3
-  sqs_enabled     = var.components.sqs
+  source      = "./modules/iam"
+  project     = var.project
+  components  = var.components
 }
 
 module "s3" {
