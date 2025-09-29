@@ -66,7 +66,7 @@ resource "aws_cloudfront_origin_access_control" "general_bucket_oac" {
 }
 
 resource "aws_cloudfront_cache_policy" "default" {
-  name        = "${var.project}-general-bucket-cache-policy"
+  name        = "${var.project}-general-bucket-blerp-cache-policy"
   default_ttl = 360
   max_ttl     = 3600
   min_ttl     = 60
@@ -88,7 +88,7 @@ resource "aws_cloudfront_cache_policy" "default" {
 }
 
 resource "aws_cloudfront_cache_policy" "static" {
-  name        = "${var.project}-general-bucket-cache-policy"
+  name        = "${var.project}-general-bucket-staic-cache-policy"
   default_ttl = 360
   max_ttl     = 3600
   min_ttl     = 60
@@ -174,9 +174,9 @@ data "aws_iam_policy_document" "s3_bucket_base" {
   count       = var.config.cloudfront == true ? 1 : 0 
   statement {
     sid       = "S3GeneralBucketCloudFront"
-    effect    = "allow"
+    effect    = "Allow"
     actions   = [ "s3:getObject" ]
-    resources = [ "${aws_s3_bucket.general.arn}" ]
+    resources = [ "${aws_s3_bucket.general.arn}", "${aws_s3_bucket.general.arn}/*" ]
 
     principals {
       type        = "Service"
@@ -191,7 +191,7 @@ data "aws_iam_policy_document" "s3_bucket_base" {
   }
 }
 
-resource "aws_s3_bucket_policy" "website_bucket_policy" {
+resource "aws_s3_bucket_policy" "general_bucket_policy" {
   count   = var.config.cloudfront == true ? 1 : 0 
   bucket  = aws_s3_bucket.general.id
   policy  = data.aws_iam_policy_document.s3_bucket_base.0.json
