@@ -5,6 +5,19 @@ data "aws_partition" "current_partition" {}
 data "aws_region" "current_region" {}
 data "aws_caller_identity" "current_identity" {}
 
+
+###############################################################################
+# S3 Bucket Base Policy Document                                       BEGIN  #
+#                                                                             #
+#    Establish a policy document data source to append additional             #
+#    statments to later in this module                                        #
+###############################################################################
+data "aws_iam_policy_document" "s3_bucket_base" {}
+
+###############################################################################
+# S3 Bucket Base Policy Document                                         END  #
+###############################################################################
+
 ###############################################################################
 # ECS Task Execution Role                                              BEGIN  #
 #                                                                             #

@@ -34,12 +34,12 @@ module "iam" {
   components  = var.components
 }
 
-module "s3" {
-  count = var.components.s3 ? 1 : 0
-  source = "terraform-aws-modules/s3-bucket/aws"
-
-  bucket = "${var.project}"
-}
+#module "s3" {
+#  count = var.components.s3 ? 1 : 0
+#  source = "terraform-aws-modules/s3-bucket/aws"
+#
+#  bucket = "${var.project}"
+#}
 
 module "sqs" {
   count   = var.components.sqs ? 1 : 0
