@@ -66,7 +66,7 @@ resource "aws_cloudfront_origin_access_control" "general_bucket_oac" {
 }
 
 resource "aws_cloudfront_cache_policy" "default" {
-  name        = "${var.project}-general-bucket-blerp-cache-policy"
+  name        = "${var.project}-general-bucket-default-cache-policy"
   default_ttl = 360
   max_ttl     = 3600
   min_ttl     = 60
@@ -88,7 +88,7 @@ resource "aws_cloudfront_cache_policy" "default" {
 }
 
 resource "aws_cloudfront_cache_policy" "static" {
-  name        = "${var.project}-general-bucket-staic-cache-policy"
+  name        = "${var.project}-general-bucket-static-cache-policy"
   default_ttl = 360
   max_ttl     = 3600
   min_ttl     = 60

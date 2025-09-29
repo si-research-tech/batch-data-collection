@@ -15,7 +15,7 @@ provider "aws" {
 provider "google" {
   project = "drivinghistory-f548"
   region  = "us-central1"
-  access_token = "1304987130498134"
+  access_token = ""
 }
 
 resource "aws_cloudwatch_log_group" "default" {
