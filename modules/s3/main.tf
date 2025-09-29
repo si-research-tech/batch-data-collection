@@ -101,7 +101,10 @@ resource "aws_cloudfront_cache_policy" "static" {
 
     headers_config {
       header_behavior = "whitelist"
-      headers         = ["Origin"]
+
+      headers { 
+        items = ["Origin"]
+      }
     }
 
     query_strings_config {
@@ -110,7 +113,8 @@ resource "aws_cloudfront_cache_policy" "static" {
   }
 }
 
-resource "aws_cloudfront_distribution" "website_distribution" {
+resource "aws_cloudfront_distribution" "general_bucket" {
+  count               = var.config.cloudfront == true ? 1 : 0 
   enabled             = true
   is_ipv6_enabled     = true
   comment             = "CloudFront distribution for ${aws_s3_bucket.general.bucket} s3 bucket"
@@ -122,7 +126,7 @@ resource "aws_cloudfront_distribution" "website_distribution" {
 
   origin {
     domain_name              = aws_s3_bucket.general.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.general_bucket_oac.id
+    origin_access_control_id = aws_cloudfront_origin_access_control.general_bucket_oac.0.id
     origin_id                = "S3-${aws_s3_bucket.general.bucket}"
   }
 
@@ -168,42 +172,30 @@ resource "aws_cloudfront_distribution" "website_distribution" {
 
 data "aws_iam_policy_document" "s3_bucket_base" {
   count       = var.config.cloudfront == true ? 1 : 0 
-  source_json = module.iam.aws_iam_policy_document.s3_bucket_base.json  
-
   statement {
     sid       = "S3GeneralBucketCloudFront"
     effect    = "allow"
     actions   = [ "s3:getObject" ]
-    resources = [ "${aws_s3.bucket.general.arn}" ]
+    resources = [ "${aws_s3_bucket.general.arn}" ]
 
     principals {
       type        = "Service"
-      identifiers = "cloudfront.amazonaws.com"
+      identifiers = [ "cloudfront.amazonaws.com" ]
     }
 
     condition {
       test      = "StringEquals"
       variable  = "AWS:SourceArn"
-      values    = [ "${aws_cloudfront_distribution.general_bucket.arn}" ]
+      values    = [ "${aws_cloudfront_distribution.general_bucket.0.arn}" ]
     }
   }
+}
+
+resource "aws_s3_bucket_policy" "website_bucket_policy" {
+  count   = var.config.cloudfront == true ? 1 : 0 
+  bucket  = aws_s3_bucket.general.id
+  policy  = data.aws_iam_policy_document.s3_bucket_base.0.json
 }
 ###############################################################################
 # CloudFront Bucket Access                                               END  #
 ###############################################################################
-
-
-###############################################################################
-# Bucket Access Policy Application                                     BEGIN  #
-#                                                                             #
-#   Apply final bucket IAM statement after processing                         #
-#   the rest of this module.                                                  #
-###############################################################################
-resource "aws_s3_bucket_policy" "website_bucket_policy" {
-  bucket  = aws_s3_bucket.general.id
-  policy  = modules.iam.aws_policy_document.s3_bucket_base.json
-}
-###############################################################################
-# Bucket Access Policy Application                                       END  #
-###############################################################################
-

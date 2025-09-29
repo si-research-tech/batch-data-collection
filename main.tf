@@ -34,12 +34,6 @@ module "iam" {
   components  = var.components
 }
 
-#module "s3" {
-#  count = var.components.s3 ? 1 : 0
-#  source = "terraform-aws-modules/s3-bucket/aws"
-#
-#  bucket = "${var.project}"
-#}
 
 module "sqs" {
   count   = var.components.sqs ? 1 : 0
@@ -114,4 +108,12 @@ module "aws_cloud_run" {
     module.rds,
     module.s3
   ]
+}
+
+module "s3" {
+  count = var.components.s3 ? 1 : 0
+  source = "./modules/s3"
+
+  project = "${var.project}"
+  config = var.s3
 }

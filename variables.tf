@@ -142,6 +142,24 @@ variable "sqs" {
   }
 }
 
+
+variable "s3" {
+  type    = object({
+    cloudfront = bool
+    versioning = string
+  })
+
+  default = {
+    cloudfront = false
+    versioning = "Disabled"
+  }
+
+  validation {
+    condition     = contains(["Disabled", "Enabled", "Suspended"], var.s3.versioning)
+    error_message = "Versioning for S3 must be set to Disabled, Enabled, or Suspended"
+  }
+}
+
 variable "lambda" {
   type      = object({
     functions = list(object({
