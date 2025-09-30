@@ -199,3 +199,7 @@ resource "aws_s3_bucket_policy" "general_bucket_policy" {
 ###############################################################################
 # CloudFront Bucket Access                                               END  #
 ###############################################################################
+
+output "cloudfront_domain" {
+  value = try(aws_cloudfront_distribution.general_bucket.0.domain_name, "None")
+}

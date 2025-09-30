@@ -15,7 +15,7 @@ provider "aws" {
 provider "google" {
   project = "drivinghistory-f548"
   region  = "us-central1"
-  access_token = ""
+  access_token = "123thisisafaketoken456"
 }
 
 resource "aws_cloudwatch_log_group" "default" {
@@ -68,7 +68,7 @@ module "rds" {
 }
 
 output "db_endpoint" {
-  value = try(module.rds.db_endpoint, "None")
+  value = try(module.rds.0.db_endpoint, "None")
 }
 
 module "aws_batch" {
@@ -117,4 +117,8 @@ module "s3" {
 
   project = "${var.project}"
   config = var.s3
+}
+
+output "cloudfront_domain" {
+  value = module.s3.0.cloudfront_domain
 }
