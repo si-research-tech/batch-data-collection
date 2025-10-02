@@ -210,11 +210,6 @@ variable "jobs" {
   }))
 
   validation {
-    condition     = length(var.jobs) > 0
-    error_message = "You must define jobs in your variables file. See variables.tf for example structure."
-  }
-
-  validation {
     condition     = alltrue([
      for job in var.jobs : job.scheduling.enabled && length(job.scheduling.instances) > 0
     ])

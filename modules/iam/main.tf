@@ -274,7 +274,7 @@ locals {
       permissions = [
         "rds-db:connect"
       ]
-      resources = ["arn:aws:rds-db:${data.aws_region.current_region.name}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
+      resources = ["arn:aws:rds-db:${data.aws_region.current_region.region}:${data.aws_caller_identity.current_identity.id}:dbuser:*/${var.project}"]
     },
     {
       service = "s3"

@@ -35,7 +35,7 @@ data "aws_security_group" "fargate" {
 }
 
 resource "aws_batch_compute_environment" "fargate" {
-    compute_environment_name    = "AWSBatch_${var.project}"
+    name                        = "AWSBatch_${var.project}"
     service_role                = data.aws_iam_role.batch_service.arn
     type                        = "MANAGED"
 
