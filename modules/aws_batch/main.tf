@@ -1,8 +1,17 @@
-# Variables #
 variable project {}
 variable jobs {}
 variable fargate_config {}
 variable batch_config {}
+
+module "iam" {
+  source      = "./modules/iam"
+  project     = var.project
+}
+
+module "network" {
+  source      = "./modules/network"
+  project     = var.project
+}
 
 data "aws_vpc" "default" {
   default = true
@@ -18,33 +27,59 @@ data "aws_subnets" "private_subnets" {
 data "aws_cloudwatch_log_group" "default" {
   name  = "${var.project}"
 }
+
 data "aws_iam_role" "ecs_task_execution" {
   name  = "${var.project}_ecs-task-execution"
+
+  depends_on = [
+    module.iam,
+    module.network
+  ]
 }
 
 data "aws_iam_role" "batch_service" {
   name  = "${var.project}_batch-service"
+
+  depends_on = [
+    module.iam,
+    module.network
+  ]
 }
 
 data "aws_iam_role" "batch_task" {
   name  = "${var.project}_batch-task"
+
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 data "aws_security_group" "fargate" {
   name  = "${var.project}_fargate"
+
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 resource "aws_batch_compute_environment" "fargate" {
-    name                        = "AWSBatch_${var.project}"
-    service_role                = data.aws_iam_role.batch_service.arn
-    type                        = "MANAGED"
+  name                        = "AWSBatch_${var.project}"
+  service_role                = data.aws_iam_role.batch_service.arn
+  type                        = "MANAGED"
 
-    compute_resources {
-      max_vcpus = var.fargate_config.compute_environment.max_vcpus
-      security_group_ids = [ data.aws_security_group.fargate.id ]
-      subnets = data.aws_subnets.private_subnets.ids
-      type = var.fargate_config.compute_environment.use_spot ? "FARGATE_SPOT" : "FARGATE"
-    }
+  compute_resources {
+    max_vcpus = var.fargate_config.compute_environment.max_vcpus
+    security_group_ids = [ data.aws_security_group.fargate.id ]
+    subnets = data.aws_subnets.private_subnets.ids
+    type = var.fargate_config.compute_environment.use_spot ? "FARGATE_SPOT" : "FARGATE"
+  }
+
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 resource "aws_batch_scheduling_policy" "queue-scheduling-policy" {
@@ -63,6 +98,11 @@ resource "aws_batch_scheduling_policy" "queue-scheduling-policy" {
       }
     }
   }
+
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 resource "aws_batch_job_queue" "fargate_queue" {
@@ -76,6 +116,10 @@ resource "aws_batch_job_queue" "fargate_queue" {
     compute_environment = aws_batch_compute_environment.fargate.arn
   } 
 
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 resource "aws_batch_job_definition" "job_definitions" {
@@ -131,6 +175,11 @@ resource "aws_batch_job_definition" "job_definitions" {
   lifecycle {
     ignore_changes = [ container_properties ]
   }
+
+  depends_on = [ 
+    module.iam,
+    module.network
+  ]
 }
 
 module "eventbridge_schedule" {

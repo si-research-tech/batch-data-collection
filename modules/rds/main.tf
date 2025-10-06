@@ -1,16 +1,41 @@
 variable "project" {}
 variable "config" {}
 
+module "iam" {
+  source = "./modules/iam"
+  project = var.project
+}
+
+module "network" {
+  source = "./modules/iam"
+  project = var.project
+}
+
 data "aws_iam_role" "rds_monitoring" {
   name = "${var.project}-rds-monitoring-role"
+
+  depends_on = [
+    module.network,
+    module.iam
+  ]
 }
 
 data "aws_security_group" "rds_security" {
   name        = "${var.project}_rds"
+
+  depends_on = [
+    module.network,
+    module.iam
+  ]
 }
 
 data "aws_db_subnet_group" "rds" {
   name       = "${var.project}_rds"
+
+  depends_on = [
+    module.network,
+    module.iam
+  ]
 }
 
 locals {
@@ -40,11 +65,21 @@ resource "aws_db_instance" "default" {
   lifecycle {
     ignore_changes = [ final_snapshot_identifier ]
   } 
+
+  depends_on = [
+    module.network,
+    module.iam
+  ]
 }
 
 module "eventbridge" {
   source = "./modules/eventbridge"
   project = var.project
+
+  depends_on = [
+    module.network,
+    module.iam
+  ]
 }
 
 output "db_endpoint" {

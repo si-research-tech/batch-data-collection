@@ -23,18 +23,11 @@ resource "aws_cloudwatch_log_group" "default" {
   retention_in_days = 30
 }
 
-module "network" {
-  source  = "./modules/network"
-  project = var.project
+module "iam" {
+  source  = "./modules/iam"
+  project = "${var.project}"
   components = var.components
 }
-
-module "iam" {
-  source      = "./modules/iam"
-  project     = var.project
-  components  = var.components
-}
-
 
 module "sqs" {
   count   = var.components.sqs ? 1 : 0
@@ -48,10 +41,7 @@ module "sqs" {
     maxReceiveCount = "${var.sqs.max_recieve_attempts}"
   }
 
-  depends_on  = [
-    module.iam,
-    module.network
-  ]
+  depends_on = [ module.iam ]
 }
 
 module "rds" {
@@ -61,10 +51,7 @@ module "rds" {
   project = var.project
   config  = var.rds
 
-  depends_on  = [
-    module.iam,
-    module.network
-  ]
+  depends_on = [ module.iam ]
 }
 
 output "db_endpoint" {
@@ -81,7 +68,7 @@ module "aws_batch" {
   fargate_config  = var.batch.fargate_config
 
   depends_on = [
-    module.iam,
+    module.iam, 
     module.sqs,
     module.rds,
     module.s3
@@ -117,6 +104,8 @@ module "s3" {
 
   project = "${var.project}"
   config = var.s3
+
+  depends_on = [ module.iam ]
 }
 
 output "cloudfront_domain" {

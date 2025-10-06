@@ -1,5 +1,4 @@
 variable project {}
-variable components {}
 
 data "aws_vpc" "default" {
   default = true
@@ -35,16 +34,12 @@ resource "aws_security_group" "fargate" {
 }
 
 resource "aws_db_subnet_group" "rds" {
-  count = var.components.rds == true ? 1 :0 
-
   name       = "${var.project}_rds"
   subnet_ids = [ for subnet in data.aws_subnets.default_subnets.ids : subnet ]
 }
 
 
 resource "aws_security_group" "rds_security" {
-  count = var.components.rds == true ? 1 :0 
-
   name        = "${var.project}_rds"
   description = "Allow swl.si.umich.edu to access RDS"
   vpc_id      = data.aws_vpc.default.id 
